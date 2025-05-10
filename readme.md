@@ -1,5 +1,9 @@
 # N26 Notification Reader
 
+**⚠️ IMPORTANT WARNING ⚠️**
+
+**This application is for experimental purposes only and should NOT be published on the Google Play Store. It is intended to be run locally at your own risk. The developers take no responsibility for any misuse or consequences of using this application.**
+
 This Android application captures push notifications from the N26 banking app and forwards them to a specified email address. It's useful for keeping track of your N26 banking activities through email notifications.
 
 ## Project Structure
