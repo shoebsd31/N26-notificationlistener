@@ -1,0 +1,20 @@
+{
+  "name": "Android Codespace",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/NordcomInc/devcontainer-features/android-sdk:1": {},
+    "ghcr.io/devcontainers/features/java:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "redhat.java",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "forwardPorts": [8080, 5001],
+  "postCreateCommand": "./gradlew build --no-daemon"
+}
