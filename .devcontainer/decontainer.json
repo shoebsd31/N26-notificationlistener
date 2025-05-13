@@ -3,7 +3,13 @@
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/NordcomInc/devcontainer-features/android-sdk:1": {},
-    "ghcr.io/devcontainers/features/java:1": {}
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installMaven": true,
+      "installGradle": false
+    },
+    "ghcr.io/nordcominc/devcontainer-features/android-sdk:1": {},
+		"ghcr.io/devcontainers-extra/features/gradle-sdkman:2": {}
   },
   "customizations": {
     "vscode": {
@@ -16,5 +22,5 @@
     }
   },
   "forwardPorts": [8080, 5001],
-  "postCreateCommand": "./gradlew build --no-daemon"
+  "postCreateCommand": "./gradlew build --no-daemon & java -version"
 }
