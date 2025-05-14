@@ -2,12 +2,13 @@ package com.example.readn26notifications;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
-import android.service.notification.NotificationListenerService;
-import android.service.notification.StatusBarNotification;
+import android.provider.Settings;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -16,14 +17,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.textfield.TextInputEditText;
 
-import java.util.Properties;
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     public static MainActivity instance;
@@ -32,6 +31,9 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences sharedPreferences;
     private static final String PREF_NAME = "N26NotificationPrefs";
     private static final String KEY_EMAIL = "email";
+    private static final String KEY_LOGS = "notification_logs";
+    private static final String KEY_LOG_TIMESTAMPS = "log_timestamps";
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,12 +44,14 @@ public class MainActivity extends AppCompatActivity {
         emailInput = findViewById(R.id.emailInput);
         logsText = findViewById(R.id.logsText);
         Button saveButton = findViewById(R.id.saveButton);
+        Button clearLogsButton = findViewById(R.id.clearLogsButton);
 
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         String savedEmail = sharedPreferences.getString(KEY_EMAIL, "");
         emailInput.setText(savedEmail);
 
         saveButton.setOnClickListener(v -> saveEmail());
+        clearLogsButton.setOnClickListener(v -> clearLogs());
 
         // Request notification access
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -59,6 +63,79 @@ public class MainActivity extends AppCompatActivity {
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(channel);
         }
+
+        // Check and request notification access
+        if (!isNotificationServiceEnabled()) {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            startActivity(intent);
+            Toast.makeText(this, "Please enable notification access for this app", Toast.LENGTH_LONG).show();
+        }
+
+        // Load and display logs
+        loadAndDisplayLogs();
+    }
+
+    private void loadAndDisplayLogs() {
+        String logs = sharedPreferences.getString(KEY_LOGS, "");
+        String timestamps = sharedPreferences.getString(KEY_LOG_TIMESTAMPS, "");
+        
+        if (!logs.isEmpty() && !timestamps.isEmpty()) {
+            String[] logArray = logs.split("\\|\\|");
+            String[] timestampArray = timestamps.split("\\|\\|");
+            
+            StringBuilder displayLogs = new StringBuilder();
+            List<String> validLogs = new ArrayList<>();
+            List<String> validTimestamps = new ArrayList<>();
+            
+            Calendar sevenDaysAgo = Calendar.getInstance();
+            sevenDaysAgo.add(Calendar.DAY_OF_YEAR, -7);
+            
+            for (int i = 0; i < logArray.length; i++) {
+                try {
+                    Date logDate = DATE_FORMAT.parse(timestampArray[i]);
+                    if (logDate != null && logDate.after(sevenDaysAgo.getTime())) {
+                        validLogs.add(logArray[i]);
+                        validTimestamps.add(timestampArray[i]);
+                        displayLogs.append(timestampArray[i]).append(": ").append(logArray[i]).append("\n");
+                    }
+                } catch (Exception e) {
+                    // Skip invalid timestamps
+                }
+            }
+            
+            // Save cleaned logs
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(KEY_LOGS, String.join("||", validLogs));
+            editor.putString(KEY_LOG_TIMESTAMPS, String.join("||", validTimestamps));
+            editor.apply();
+            
+            logsText.setText(displayLogs.toString());
+        }
+    }
+
+    private void clearLogs() {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(KEY_LOGS);
+        editor.remove(KEY_LOG_TIMESTAMPS);
+        editor.apply();
+        logsText.setText("");
+        Toast.makeText(this, "Logs cleared", Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean isNotificationServiceEnabled() {
+        String pkgName = getPackageName();
+        final String flat = Settings.Secure.getString(getContentResolver(),
+                "enabled_notification_listeners");
+        if (flat != null && !flat.isEmpty()) {
+            final String[] names = flat.split(":");
+            for (String name : names) {
+                final ComponentName cn = ComponentName.unflattenFromString(name);
+                if (cn != null && pkgName.equals(cn.getPackageName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void saveEmail() {
@@ -78,9 +155,22 @@ public class MainActivity extends AppCompatActivity {
 
     public void addLog(String message) {
         runOnUiThread(() -> {
-            String currentLogs = logsText.getText().toString();
-            String newLog = currentLogs.isEmpty() ? message : currentLogs + "\n" + message;
-            logsText.setText(newLog);
+            String timestamp = DATE_FORMAT.format(new Date());
+            String currentLogs = sharedPreferences.getString(KEY_LOGS, "");
+            String currentTimestamps = sharedPreferences.getString(KEY_LOG_TIMESTAMPS, "");
+            
+            String newLog = currentLogs.isEmpty() ? message : currentLogs + "||" + message;
+            String newTimestamps = currentTimestamps.isEmpty() ? timestamp : currentTimestamps + "||" + timestamp;
+            
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(KEY_LOGS, newLog);
+            editor.putString(KEY_LOG_TIMESTAMPS, newTimestamps);
+            editor.apply();
+            
+            String displayLog = timestamp + ": " + message;
+            String currentDisplayLogs = logsText.getText().toString();
+            String newDisplayLog = currentDisplayLogs.isEmpty() ? displayLog : currentDisplayLogs + "\n" + displayLog;
+            logsText.setText(newDisplayLog);
         });
     }
 

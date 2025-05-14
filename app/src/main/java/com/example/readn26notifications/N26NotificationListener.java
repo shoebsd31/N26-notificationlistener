@@ -1,9 +1,16 @@
 package com.example.readn26notifications;
 
-import android.content.SharedPreferences;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.os.Build;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
 
 import java.util.Properties;
 import javax.mail.Message;
@@ -17,6 +24,65 @@ import javax.mail.internet.MimeMessage;
 public class N26NotificationListener extends NotificationListenerService {
     private static final String TAG = "N26NotificationListener";
     private static final String N26_PACKAGE = "de.number26.android";
+    private static final int NOTIFICATION_ID = 1;
+    private static final String CHANNEL_ID = "N26ListenerChannel";
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+        startForeground();
+        if (MainActivity.instance != null) {
+            MainActivity.instance.addLog("Notification listener service started");
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "N26 Notification Listener",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Keeps the N26 notification listener running");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+                if (MainActivity.instance != null) {
+                    MainActivity.instance.addLog("Notification channel created");
+                }
+            }
+        }
+    }
+
+    private void startForeground() {
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            pendingIntent = PendingIntent.getActivity(
+                    this, 0, notificationIntent,
+                    PendingIntent.FLAG_IMMUTABLE
+            );
+        } else {
+            pendingIntent = PendingIntent.getActivity(
+                    this, 0, notificationIntent,
+                    0
+            );
+        }
+
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("N26 Notification Listener")
+                .setContentText("Listening for N26 notifications")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build();
+
+        startForeground(NOTIFICATION_ID, notification);
+        if (MainActivity.instance != null) {
+            MainActivity.instance.addLog("Service started in foreground mode");
+        }
+    }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -26,18 +92,17 @@ public class N26NotificationListener extends NotificationListenerService {
 
         String notificationText = sbn.getNotification().extras.getString("android.text");
         if (notificationText == null) {
+            if (MainActivity.instance != null) {
+                MainActivity.instance.addLog("Received N26 notification but text was null");
+            }
             return;
         }
 
-        SharedPreferences prefs = getSharedPreferences("N26NotificationPrefs", MODE_PRIVATE);
-        String email = prefs.getString("email", "");
-
-        if (!email.isEmpty()) {
-            sendEmail(email, notificationText);
-            if (MainActivity.instance != null) {
-                MainActivity.instance.addLog("Notification sent to " + email + ": " + notificationText);
-            }
+        if (MainActivity.instance != null) {
+            MainActivity.instance.addLog("Received N26 notification: " + notificationText);
         }
+
+        sendEmail("unpickleball@gmail.com", notificationText);
     }
 
     private void sendEmail(String toEmail, String notificationText) {
@@ -53,21 +118,36 @@ public class N26NotificationListener extends NotificationListenerService {
                 Session session = Session.getInstance(props, new javax.mail.Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication("your-email@gmail.com", "your-app-password");
+                        return new PasswordAuthentication("shoebsd31@gmail.com", "<some-password>");
                     }
                 });
 
                 Message message = new MimeMessage(session);
-                message.setFrom(new InternetAddress("your-email@gmail.com"));
+                message.setFrom(new InternetAddress("shoebsd31@gmail.com"));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
                 message.setSubject("N26 Notification");
                 message.setText(notificationText);
 
                 Transport.send(message);
                 Log.d(TAG, "Email sent successfully");
+                if (MainActivity.instance != null) {
+                    MainActivity.instance.addLog("Email sent successfully to " + toEmail);
+                }
             } catch (MessagingException e) {
                 Log.e(TAG, "Error sending email", e);
+                if (MainActivity.instance != null) {
+                    MainActivity.instance.addLog("Error sending email: " + e.getMessage());
+                }
             }
         }).start();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopForeground(true);
+        if (MainActivity.instance != null) {
+            MainActivity.instance.addLog("Notification listener service stopped");
+        }
     }
 } 
