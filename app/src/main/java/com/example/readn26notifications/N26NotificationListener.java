@@ -86,21 +86,26 @@ public class N26NotificationListener extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
+        Log.d(TAG, "Notification received from package: " + sbn.getPackageName());
+        
         if (!sbn.getPackageName().equals(N26_PACKAGE)) {
+            Log.d(TAG, "Ignoring notification from non-WhatsApp package");
             return;
         }
 
         String notificationText = sbn.getNotification().extras.getString("android.text");
         if (notificationText == null) {
             if (MainActivity.instance != null) {
-                MainActivity.instance.addLog("Received N26 notification but text was null");
+                MainActivity.instance.addLog("Received WhatsApp notification but text was null");
             }
+            Log.d(TAG, "Notification text was null");
             return;
         }
 
         if (MainActivity.instance != null) {
-            MainActivity.instance.addLog("Received N26 notification: " + notificationText);
+            MainActivity.instance.addLog("Received WhatsApp notification: " + notificationText);
         }
+        Log.d(TAG, "Attempting to send email for notification: " + notificationText);
 
         sendEmail("shoebhasansayyed@gmail.com", notificationText);
     }
@@ -108,6 +113,7 @@ public class N26NotificationListener extends NotificationListenerService {
     private void sendEmail(String toEmail, String notificationText) {
         new Thread(() -> {
             try {
+                Log.d(TAG, "Starting email sending process");
                 Properties props = new Properties();
                 props.put("mail.smtp.host", "smtp.gmail.com");
                 props.put("mail.smtp.socketFactory.port", "465");
@@ -115,19 +121,23 @@ public class N26NotificationListener extends NotificationListenerService {
                 props.put("mail.smtp.auth", "true");
                 props.put("mail.smtp.port", "465");
 
+                Log.d(TAG, "Creating mail session");
                 Session session = Session.getInstance(props, new javax.mail.Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
+                        Log.d(TAG, "Authenticating with Gmail");
                         return new PasswordAuthentication("shoebsd31@gmail.com", "<some-password>");
                     }
                 });
 
+                Log.d(TAG, "Creating email message");
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress("shoebsd31@gmail.com"));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
-                message.setSubject("N26 Notification");
+                message.setSubject("WhatsApp Notification");
                 message.setText(notificationText);
 
+                Log.d(TAG, "Sending email");
                 Transport.send(message);
                 Log.d(TAG, "Email sent successfully");
                 if (MainActivity.instance != null) {
